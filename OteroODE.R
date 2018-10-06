@@ -1,4 +1,7 @@
 
+rm(list=ls());gc()
+library(deSolve)
+
 # temperature dependent constants
 theta_temp <- function(){
   list(
@@ -30,7 +33,71 @@ theta_temp <- function(){
   )
 }
 
+# other biological parameters
+theta_const <- function(){
+  list(
+    # eggs/oviposition
+    beta = 63,
+    muE = 0.01,
+    ef = 0.83, # emergence fraction
+    muA =0.09,
+    alpha0 = 1.5
+  )
+}
+
 # t: temp in celsius
 schoolfield <- function(t,R,RdK,Ha,Hh,T05){
   RdK * ((((t+273.15)/298) * exp((Ha/R)*((1/298) - (1/(t+273.15))))) / (1 + exp((Hh/R) * ((1/T05) - (1/(t+273.15))))))
+}
+
+# density-dependent egg hatching inhibition
+gamma <- function(L,BS,a0){
+  ifelse(L/BS < a0,0,0.63)
+}
+
+# temperature dependent larval and pupal death
+muL_t <- function(t){
+  0.01 + (0.9725*exp(-(t-278)/2.7035))
+}
+
+muP_t <- function(t){
+  0.01 + (0.9725*exp(-(t-278)/2.7035))
+}
+
+# plug in a time (in days) t and get a temperature in celsius
+temp <- function(t,a=18,b=6.7,c=9.2){
+  a + b*cos(((2*pi*t)/365.24) + c)
+}
+
+# alpha parameter
+alpha <- function(a0,BS){
+  a0/BS
+}
+
+# vector of dx/dt for all states x
+mod_dx <- function(time,state,theta){
+  with(as.list(c(state,theta)),{
+    
+    # calc temp-dependent things
+    t <- temp(time)
+    elr <- schoolfield(t,R,RdK_e,Ha_e,Hh_e,T05_e)
+    lpr <- schoolfield(t,R,RdK_l,Ha_l,Hh_l,T05_l)
+    par <- schoolfield(t,R,RdK_p,Ha_p,Hh_p,T05_p)
+    ovr1 <- schoolfield(t,R,RdK_a1,Ha_a1,Hh_a1,T05_a1)
+    ovr2 <- schoolfield(t,R,RdK_a2,Ha_a2,Hh_a2,T05_a2)
+    
+    # mortality & aquatic
+    muL <- muL_t(t)
+    muP <- muP_t(t)
+    gammaL <- gamma(L,BS,a0)
+    
+    # dx/dt
+    dE <- beta*((ovr1*A1) + (ovr2*A2)) - (muE*E) - (elr*(1-gammaL)*E)
+    dL <- (elr*(1-gammaL)*E) - (muL*L) - (alpha*(L^2)) - (lpr*L)
+    dP <- (lpr*L) - (muP*P) - (par*P)
+    dA1 <- (par*ef*P/2) - (muA*A1) - (ovr1*A1)
+    dA2 <- (ovr1*A1) - (muA*A2)
+    
+    return(list(c(dE,dL,dP,dA1,dA2)))
+  })
 }
