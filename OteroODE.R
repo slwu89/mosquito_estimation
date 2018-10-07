@@ -61,7 +61,7 @@ theta_const <- function(){
     ef = 0.83, # emergence fraction
     muA =0.09,
     a0 = 1.5,
-    BS = 24
+    BS = 25
   )
 }
 
@@ -77,16 +77,17 @@ gamma <- function(L,BS,a0){
 
 # temperature dependent larval and pupal death
 muL_t <- function(t){
-  0.01 + (0.9725*exp(-(t-278)/2.7035))
+  0.01 + (0.9725*exp(-((t+273.15)-278)/2.7035))
 }
 
 muP_t <- function(t){
-  0.01 + (0.9725*exp(-(t-278)/2.7035))
+  0.01 + (0.9725*exp(-((t+273.15)-278)/2.7035))
 }
 
 # plug in a time (in days) t and get a temperature in celsius
 temp <- function(t,a=18,b=6.7,c=9.2){
   a + b*cos(((2*pi*t)/365.24) + c)
+  # return(25)
 }
 
 # alpha parameter
@@ -111,6 +112,8 @@ mod_dx <- function(time,state,theta){
     muP <- muP_t(t)
     gammaL <- gamma(L,BS,a0)
     
+    # cat("gammaL: ",gammaL,"\n")
+    
     # dx/dt
     dE <- beta*((ovr1*A1) + (ovr2*A2)) - (muE*E) - (elr*(1-gammaL)*E)
     dL <- (elr*(1-gammaL)*E) - (muL*L) - (alpha*(L^2)) - (lpr*L)
@@ -132,11 +135,43 @@ mod_eq <- function(t,L0,theta){
     ovr1 <- schoolfield(t,R,RdK_a1,Ha_a1,Hh_a1,T05_a1)
     ovr2 <- schoolfield(t,R,RdK_a2,Ha_a2,Hh_a2,T05_a2)
     
+    muL <- muL_t(t)
+    muP <- muP_t(t)
+    gammaL <- gamma(L0,BS,a0)
     
-    E0 <- L0 * ( (beta*(ovr2 + muA)*ovr1*par*ef*lpr) / )
+    # equilibria
+    E0 <- L0 * ((beta*(ovr2 + muA)*ovr1*par*ef*lpr) / (2*muA*(muE + (elr*(1-gammaL)))*((muP*muA) + (muP*ovr1) + (par*muA) + (ovr1*par))))
+    P0 <- L0 * (lpr / (muP + par))
+    A10 <- L0 * ((par*ef*lpr) / (2*((muP*muA) + (muP*ovr1) + (par*muA) + (ovr1*par))))
+    A20 <- L0 * ((ovr1*par*ef*lpr) / (2*muA*(muP*muA) + (muP*ovr1) + (par*muA) + (ovr1*par)))
+    
+    # check positivity constraints
+    pos <- (elr * (1 - gammaL) * (E0 / L0)) - (lpr + muL)
+    if(pos < 0){
+      stop("positivity constraints not fulfilled")
+    }
+    
+    return(
+      list(
+        E0=E0,
+        P0=P0,
+        A10=A10,
+        A20=A20
+      )
+    )
   })
 }
 
-
 theta <- c(theta_const(),theta_temp())
 theta$alpha <- alpha(a0 = theta$a0,BS = theta$BS)
+
+L0 <- 100
+state_eq <- mod_eq(t = temp(1),L0 = L0,theta = theta)
+
+mod_y <- with(state_eq,{
+  c(E=E0,L=L0,P=P0,A1=A10,A2=A20)
+})
+
+mod_out <- lsoda(y = mod_y,times = 1:(365.25*2),func = mod_dx,parms = theta,
+                 verbose = T,rtol = 1e-2)
+plot(mod_out)
