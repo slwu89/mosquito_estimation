@@ -61,7 +61,7 @@ theta_const <- function(){
     ef = 0.83, # emergence fraction
     muA =0.09,
     a0 = 1.5,
-    BS = 25
+    BS = 50
   )
 }
 
@@ -165,7 +165,7 @@ mod_eq <- function(t,L0,theta){
 theta <- c(theta_const(),theta_temp())
 theta$alpha <- alpha(a0 = theta$a0,BS = theta$BS)
 
-L0 <- 100
+L0 <- 1000
 state_eq <- mod_eq(t = temp(1),L0 = L0,theta = theta)
 
 mod_y <- with(state_eq,{
@@ -173,5 +173,5 @@ mod_y <- with(state_eq,{
 })
 
 mod_out <- lsoda(y = mod_y,times = 1:(365.25*2),func = mod_dx,parms = theta,
-                 verbose = T,rtol = 1e-2)
+                 verbose = F,rtol = 1e-2)
 plot(mod_out)
