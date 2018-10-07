@@ -1,6 +1,25 @@
+################################################################################
+# 
+#   Otero et al (2006) model
+#   Kolmogorov Forward Equations (ODEs)
+#   Sean Wu & Fausto Bustos
+#   October 2018
+# 
+################################################################################
+
+################################################################################
+# load packages
+################################################################################
 
 rm(list=ls());gc()
+library(compiler)
 library(deSolve)
+enableJIT(3)
+
+
+################################################################################
+# model functions
+################################################################################
 
 # temperature dependent constants
 theta_temp <- function(){
@@ -41,7 +60,8 @@ theta_const <- function(){
     muE = 0.01,
     ef = 0.83, # emergence fraction
     muA =0.09,
-    alpha0 = 1.5
+    a0 = 1.5,
+    BS = 24
   )
 }
 
@@ -101,3 +121,22 @@ mod_dx <- function(time,state,theta){
     return(list(c(dE,dL,dP,dA1,dA2)))
   })
 }
+
+# equilibrium pop sizes
+mod_eq <- function(t,L0,theta){
+  with(theta,{
+    
+    elr <- schoolfield(t,R,RdK_e,Ha_e,Hh_e,T05_e)
+    lpr <- schoolfield(t,R,RdK_l,Ha_l,Hh_l,T05_l)
+    par <- schoolfield(t,R,RdK_p,Ha_p,Hh_p,T05_p)
+    ovr1 <- schoolfield(t,R,RdK_a1,Ha_a1,Hh_a1,T05_a1)
+    ovr2 <- schoolfield(t,R,RdK_a2,Ha_a2,Hh_a2,T05_a2)
+    
+    
+    E0 <- L0 * ( (beta*(ovr2 + muA)*ovr1*par*ef*lpr) / )
+  })
+}
+
+
+theta <- c(theta_const(),theta_temp())
+theta$alpha <- alpha(a0 = theta$a0,BS = theta$BS)
