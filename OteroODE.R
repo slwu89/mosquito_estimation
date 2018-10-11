@@ -60,14 +60,16 @@ theta_const <- function(){
     muE = 0.01,
     ef = 0.83, # emergence fraction
     muA =0.09,
-    a0 = 1.5,
-    BS = 50
+    alpha0 = 1.5,
+    BS = 25,
+    a0 = 0.75 # the critical value resulting from the product of the critical density times the estimated average volume of the breeding sites
   )
 }
 
 # t: temp in celsius
 schoolfield <- function(t,R,RdK,Ha,Hh,T05){
-  RdK * ((((t+273.15)/298) * exp((Ha/R)*((1/298) - (1/(t+273.15))))) / (1 + exp((Hh/R) * ((1/T05) - (1/(t+273.15))))))
+  tk <- t + 273.15 # temp in kelvin
+  RdK * (((tk/298) * exp((Ha/R)*((1/298) - (1/tk)))) / (1 + exp((Hh/R) * ((1/T05) - (1/tk)))))
 }
 
 # density-dependent egg hatching inhibition
@@ -75,24 +77,34 @@ gamma <- function(L,BS,a0){
   ifelse(L/BS < a0,0,0.63)
 }
 
+# smooth functions to replace the step-function
+gamma2 <- function(L,BS,a0,a=0.63){
+  (a*(L/BS)) / (a0 + (L/BS))
+}
+
+gamma3 <- function(L,BS,a0,a=0.63){
+  (a*((L/BS)^2)) / ((a0^2) + ((L/BS)^2))
+} 
+
 # temperature dependent larval and pupal death
 muL_t <- function(t){
-  0.01 + (0.9725*exp(-((t+273.15)-278)/2.7035))
+  tk <- t + 273.15 # temp in kelvin
+  0.01 + (0.9725*exp(-(tk-278)/2.7035))
 }
 
 muP_t <- function(t){
-  0.01 + (0.9725*exp(-((t+273.15)-278)/2.7035))
+  tk <- t + 273.15 # temp in kelvin
+  0.01 + (0.9725*exp(-(tk-278)/2.7035))
 }
 
 # plug in a time (in days) t and get a temperature in celsius
 temp <- function(t,a=18,b=6.7,c=9.2){
   a + b*cos(((2*pi*t)/365.24) + c)
-  # return(25)
 }
 
 # alpha parameter
-alpha <- function(a0,BS){
-  a0/BS
+alpha <- function(alpha0,BS){
+  alpha0/BS
 }
 
 # vector of dx/dt for all states x
@@ -163,7 +175,7 @@ mod_eq <- function(t,L0,theta){
 }
 
 theta <- c(theta_const(),theta_temp())
-theta$alpha <- alpha(a0 = theta$a0,BS = theta$BS)
+theta$alpha <- alpha(alpha0 = theta$alpha0,BS = theta$BS)
 
 L0 <- 1000
 state_eq <- mod_eq(t = temp(1),L0 = L0,theta = theta)
